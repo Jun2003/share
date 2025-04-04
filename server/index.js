@@ -9,19 +9,39 @@ const server = http.createServer(app)
 // Configure CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: process.env.CLIENT_URL || "*",
     methods: ["GET", "POST"],
     credentials: true,
   }),
 )
 
+// Add a simple route for the root path
+app.get("/", (req, res) => {
+  res.send({
+    status: "ok",
+    message: "FileBeam signaling server is running",
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// Add a health check endpoint
+app.get("/health", (req, res) => {
+  res.send({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  })
+})
+
 // Create Socket.IO server
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: process.env.CLIENT_URL || "*",
     methods: ["GET", "POST"],
     credentials: true,
   },
+  // Add this to ensure WebSocket works on Render
+  transports: ["websocket", "polling"],
 })
 
 // Store active rooms

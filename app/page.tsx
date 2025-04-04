@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { QRCodeSVG } from "qrcode.react"
-import { ArrowUpDown, FileUp, Download, Copy, Check, RefreshCw } from "lucide-react"
+import { ArrowUpDown, FileUp, Download, Copy, Check, RefreshCw, Wifi, WifiOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -23,6 +23,7 @@ export default function Home() {
     estimatedTime,
     status,
     isConnected,
+    socketConnected,
     handleFileSelect,
     generateCode,
     connectWithCode,
@@ -41,15 +42,43 @@ export default function Home() {
     }
   }
 
+  // Wake up the server on page load
+  useEffect(() => {
+    const wakeUpServer = async () => {
+      try {
+        const response = await fetch("https://filebeam-signaling.onrender.com/health")
+        const data = await response.json()
+        console.log("Server status:", data)
+      } catch (error) {
+        console.error("Error waking up server:", error)
+      }
+    }
+
+    wakeUpServer()
+  }, [])
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-gradient-to-b from-background to-muted/30">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight">FileBeam</h1>
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-4xl font-bold tracking-tight">FileBeam</h1>
+            {socketConnected ? (
+              <Wifi className="h-5 w-5 text-green-500" />
+            ) : (
+              <WifiOff className="h-5 w-5 text-red-500" />
+            )}
+          </div>
           <p className="mt-2 text-muted-foreground">Transfer files directly between browsers</p>
           <div className="flex justify-center mt-6">
             <ArrowUpDown className="h-12 w-12 text-primary animate-pulse" />
           </div>
+
+          {!socketConnected && (
+            <div className="mt-4 p-2 bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-300 rounded-md text-sm">
+              Not connected to signaling server. Please refresh the page.
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="send" value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -64,8 +93,16 @@ export default function Home() {
                 <div className="space-y-4 text-center">
                   <FileUp className="mx-auto h-12 w-12 text-muted-foreground" />
                   <div>
-                    <Button onClick={() => document.getElementById("file-upload")?.click()}>Select File</Button>
-                    <input id="file-upload" type="file" className="hidden" onChange={handleFileSelect} />
+                    <Button onClick={() => document.getElementById("file-upload")?.click()} disabled={!socketConnected}>
+                      Select File
+                    </Button>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileSelect}
+                      disabled={!socketConnected}
+                    />
                     <p className="mt-2 text-sm text-muted-foreground">Up to 1GB</p>
                   </div>
                 </div>
@@ -85,7 +122,7 @@ export default function Home() {
                   </div>
 
                   {!shareCode ? (
-                    <Button className="w-full" onClick={generateCode}>
+                    <Button className="w-full" onClick={generateCode} disabled={!socketConnected}>
                       Generate Sharing Code
                     </Button>
                   ) : (
@@ -105,9 +142,7 @@ export default function Home() {
                       </div>
 
                       <div className="space-y-2">
-                        <p className="text-sm text-center text-muted-foreground">
-                          {isConnected ? "Connected! Transferring file..." : "Waiting for recipient to connect..."}
-                        </p>
+                        <p className="text-sm text-center font-medium">{status}</p>
                         {isConnected && (
                           <>
                             <Progress value={progress} className="h-2" />
@@ -138,11 +173,12 @@ export default function Home() {
                     placeholder="Enter sharing code"
                     value={receiveCode}
                     onChange={(e) => setReceiveCode(e.target.value)}
+                    disabled={!socketConnected}
                   />
                   <Button
                     className="w-full"
                     onClick={() => connectWithCode(receiveCode)}
-                    disabled={!receiveCode || isConnected}
+                    disabled={!receiveCode || isConnected || !socketConnected}
                   >
                     Connect
                   </Button>
